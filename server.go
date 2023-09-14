@@ -174,7 +174,7 @@ func (server *Server) handleSocketMessage() error {
 			next = client.incomingPacketManager.Next()
 		}
 	default:
-		if (packet.Type() != PingPacket) {
+		if packet.Type() != PingPacket {
 			client.incomingPacketManager.Increment()
 		}
 		logger.Info(fmt.Sprintf("Processing misc packet sID %d", packet.SequenceID()))
@@ -185,8 +185,6 @@ func (server *Server) handleSocketMessage() error {
 			return nil
 		}
 	}
-
-	
 
 	return nil
 }
@@ -1018,21 +1016,24 @@ func (server *Server) SendFragment(packet PacketInterface, fragmentID uint8) {
 
 	encodedPacket := packet.Bytes()
 
-	success := server.SendRaw(client.Address(), encodedPacket)
+	droppacket := server.shouldDropPacket(false)
+	if droppacket {
+		// Emulate packet drop for debugging
+		logger.Infof("Dropping outcoming packet sID %d", packet.SequenceID())
+	} else {
+		server.SendRaw(client.Address(), encodedPacket)
+	}
 
 	if (packet.HasFlag(FlagReliable) || packet.Type() == SynPacket) && packet.HasFlag(FlagNeedsAck) {
-		if success {logger.Infof("Sending packet sID %d", packet.SequenceID())}
+		if !droppacket {
+			logger.Infof("Sending packet sID %d", packet.SequenceID())
+		}
 		packet.Sender().outgoingResendManager.Add(packet)
 	}
 }
 
 // SendRaw writes raw packet data to the client socket
 func (server *Server) SendRaw(conn *net.UDPAddr, data []byte) bool {
-	if server.shouldDropPacket(false) {
-		// Emulate packet drop for debugging
-		logger.Info("Dropping outcoming packet")
-		return false
-	}
 
 	_, err := server.Socket().WriteToUDP(data, conn)
 	if err != nil {
