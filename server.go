@@ -708,7 +708,7 @@ func (server *Server) AcknowledgePacket(packet PacketInterface, payload []byte) 
 
 	data := ackPacket.Bytes()
 
-	server.SendRaw(sender.Address(), data)
+	server.SendRaw(sender.Address(), data, uint32(ackPacket.SequenceID()))
 }
 
 // Socket returns the underlying server UDP socket
@@ -1016,31 +1016,28 @@ func (server *Server) SendFragment(packet PacketInterface, fragmentID uint8) {
 
 	encodedPacket := packet.Bytes()
 
-	droppacket := server.shouldDropPacket(false)
-	if droppacket {
-		// Emulate packet drop for debugging
-		logger.Infof("Dropping outcoming packet sID %d", packet.SequenceID())
-	} else {
-		server.SendRaw(client.Address(), encodedPacket)
-	}
+	server.SendRaw(client.Address(), encodedPacket, uint32(packet.SequenceID()))
 
 	if (packet.HasFlag(FlagReliable) || packet.Type() == SynPacket) && packet.HasFlag(FlagNeedsAck) {
-		if !droppacket {
-			logger.Infof("Sending packet sID %d", packet.SequenceID())
-		}
 		packet.Sender().outgoingResendManager.Add(packet)
 	}
 }
 
 // SendRaw writes raw packet data to the client socket
-func (server *Server) SendRaw(conn *net.UDPAddr, data []byte) bool {
+func (server *Server) SendRaw(conn *net.UDPAddr, data []byte, psID uint32) {
+	if server.shouldDropPacket(false) {
+		// Emulate packet drop for debugging
+		logger.Infof("Dropping outcoming packet sID %d", psID)
+		return
+	}
+
+	logger.Infof("Sending packet sID %d", psID)
 
 	_, err := server.Socket().WriteToUDP(data, conn)
 	if err != nil {
 		// TODO - Should this return the error too?
 		logger.Error(err.Error())
 	}
-	return true
 }
 
 func (server *Server) shouldDropPacket(isRecv bool) bool {

@@ -35,7 +35,7 @@ func (p *PendingPacket) BeginTimeoutTimer() {
 				} else {
 					logger.Infof("Resending packet sID %d", p.packet.SequenceID())
 					// * Resend the packet
-					server.SendRaw(client.Address(), p.packet.Bytes())
+					server.SendRaw(client.Address(), p.packet.Bytes(), uint32(p.packet.SequenceID()))
 				}
 			}
 		}
