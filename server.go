@@ -152,6 +152,17 @@ func (server *Server) handleSocketMessage() error {
 		return nil
 	}
 
+	if packet.HasFlag(FlagNeedsAck) {
+		if packet.Type() != ConnectPacket || (packet.Type() == ConnectPacket && len(packet.Payload()) <= 0) {
+			go server.AcknowledgePacket(packet, nil)
+		}
+
+		if packet.Type() == DisconnectPacket {
+			go server.AcknowledgePacket(packet, nil)
+			go server.AcknowledgePacket(packet, nil)
+		}
+	}
+
 	switch packet.Type() {
 	case DataPacket:
 		logger.Infof("Incoming data packet sID %d", packet.SequenceID())
@@ -199,17 +210,6 @@ func (server *Server) processPacket(packet PacketInterface) error {
 
 	if packet.HasFlag(FlagAck) || packet.HasFlag(FlagMultiAck) {
 		return nil
-	}
-
-	if packet.HasFlag(FlagNeedsAck) {
-		if packet.Type() != ConnectPacket || (packet.Type() == ConnectPacket && len(packet.Payload()) <= 0) {
-			go server.AcknowledgePacket(packet, nil)
-		}
-
-		if packet.Type() == DisconnectPacket {
-			go server.AcknowledgePacket(packet, nil)
-			go server.AcknowledgePacket(packet, nil)
-		}
 	}
 
 	switch packet.Type() {
