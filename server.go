@@ -154,7 +154,7 @@ func (server *Server) handleSocketMessage() error {
 
 	switch packet.Type() {
 	case DataPacket:
-		logger.Infof("Incoming data packet sID", packet.SequenceID())
+		logger.Infof("Incoming data packet sID %d", packet.SequenceID())
 		// TODO - Make a better API in client to access incomingPacketManager?
 		client.incomingPacketManager.Push(packet)
 
