@@ -1018,20 +1018,20 @@ func (server *Server) SendFragment(packet PacketInterface, fragmentID uint8) {
 
 	encodedPacket := packet.Bytes()
 
-	server.SendRaw(client.Address(), encodedPacket)
+	success := server.SendRaw(client.Address(), encodedPacket)
 
 	if (packet.HasFlag(FlagReliable) || packet.Type() == SynPacket) && packet.HasFlag(FlagNeedsAck) {
-		logger.Infof("Sending packet sID %d", packet.SequenceID())
+		if success {logger.Infof("Sending packet sID %d", packet.SequenceID())}
 		packet.Sender().outgoingResendManager.Add(packet)
 	}
 }
 
 // SendRaw writes raw packet data to the client socket
-func (server *Server) SendRaw(conn *net.UDPAddr, data []byte) {
+func (server *Server) SendRaw(conn *net.UDPAddr, data []byte) bool {
 	if server.shouldDropPacket(false) {
 		// Emulate packet drop for debugging
 		logger.Info("Dropping outcoming packet")
-		return
+		return false
 	}
 
 	_, err := server.Socket().WriteToUDP(data, conn)
@@ -1039,6 +1039,7 @@ func (server *Server) SendRaw(conn *net.UDPAddr, data []byte) {
 		// TODO - Should this return the error too?
 		logger.Error(err.Error())
 	}
+	return true
 }
 
 func (server *Server) shouldDropPacket(isRecv bool) bool {
