@@ -113,6 +113,7 @@ func (server *Server) handleSocketMessage() error {
 
 	if server.shouldDropPacket(true) {
 		// Emulate packet drop for debugging
+		logger.Info("Dropping incoming packet")
 		return nil
 	}
 
@@ -146,27 +147,46 @@ func (server *Server) handleSocketMessage() error {
 
 	if packet.HasFlag(FlagAck) || packet.HasFlag(FlagMultiAck) {
 		// TODO - Should this return an error?
+		logger.Infof("Packet ACKED sID %d", packet.SequenceID())
 		server.handleAcknowledgement(packet)
 		return nil
 	}
 
-	// TODO - Make a better API in client to access incomingPacketManager?
-	client.incomingPacketManager.Push(packet)
+	switch packet.Type() {
+	case DataPacket:
+		logger.Infof("Incoming data packet sID", packet.SequenceID())
+		// TODO - Make a better API in client to access incomingPacketManager?
+		client.incomingPacketManager.Push(packet)
 
-	// TODO - Make this API smarter. Only track missing packets and not all packets?
-	// * Keep processing packets so long as the next one is in the pool,
-	// * this way if several packets came in out of order they all get
-	// * processed at once the moment the correct next packet comes in
-	for next := client.incomingPacketManager.Next(); next != nil; {
-		err := server.processPacket(next)
+		// TODO - Make this API smarter. Only track missing packets and not all packets?
+		// * Keep processing packets so long as the next one is in the pool,
+		// * this way if several packets came in out of order they all get
+		// * processed at once the moment the correct next packet comes in
+		for next := client.incomingPacketManager.Next(); next != nil; {
+			logger.Infof("Processing data packet sID %d", next.SequenceID())
+			err := server.processPacket(next)
+			if err != nil {
+				// TODO - Should this return the error too?
+				logger.Error(err.Error())
+				return nil
+			}
+
+			next = client.incomingPacketManager.Next()
+		}
+	default:
+		if (packet.Type() != PingPacket) {
+			client.incomingPacketManager.Increment()
+		}
+		logger.Info(fmt.Sprintf("Processing misc packet sID %d", packet.SequenceID()))
+		err := server.processPacket(packet)
 		if err != nil {
 			// TODO - Should this return the error too?
 			logger.Error(err.Error())
 			return nil
 		}
-
-		next = client.incomingPacketManager.Next()
 	}
+
+	
 
 	return nil
 }
@@ -996,6 +1016,8 @@ func (server *Server) SendFragment(packet PacketInterface, fragmentID uint8) {
 	packet.SetPayload(payload)
 	packet.SetSequenceID(uint16(client.SequenceIDOutManager().Next(packet)))
 
+	logger.Infof("Sending packet sID %d", packet.SequenceID())
+
 	encodedPacket := packet.Bytes()
 
 	server.SendRaw(client.Address(), encodedPacket)
@@ -1009,6 +1031,7 @@ func (server *Server) SendFragment(packet PacketInterface, fragmentID uint8) {
 func (server *Server) SendRaw(conn *net.UDPAddr, data []byte) {
 	if server.shouldDropPacket(false) {
 		// Emulate packet drop for debugging
+		logger.Info("Dropping outcoming packet")
 		return
 	}
 

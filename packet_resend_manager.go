@@ -1,7 +1,6 @@
 package nex
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -28,14 +27,14 @@ func (p *PendingPacket) BeginTimeoutTimer() {
 				server := client.Server()
 
 				if int(p.iterations.Increment()) > p.maxIterations {
+					logger.Infof("Reached max iter for sID %d", p.packet.SequenceID())
 					// * Max iterations hit. Assume client is dead
-					fmt.Println("Max iterations hit. Assume client is dead")
 					server.TimeoutKick(client)
 					p.StopTimeoutTimer()
 					return
 				} else {
+					logger.Infof("Resending packet sID %d", p.packet.SequenceID())
 					// * Resend the packet
-					fmt.Printf("Time out on port %d, resend packet sequenceID %d. Iteration %d\n", p.packet.Sender().Server().port, p.packet.SequenceID(), p.iterations.Value())
 					server.SendRaw(client.Address(), p.packet.Bytes())
 				}
 			}
@@ -45,7 +44,6 @@ func (p *PendingPacket) BeginTimeoutTimer() {
 
 // StopTimeoutTimer stops the packet retransmission timer
 func (p *PendingPacket) StopTimeoutTimer() {
-	fmt.Printf("Stopping timer, packet %d was ACKED on port %d\n", p.packet.SequenceID(), p.packet.Sender().Server().port)
 	close(p.quit)
 	p.ticker.Stop()
 }
