@@ -1016,13 +1016,12 @@ func (server *Server) SendFragment(packet PacketInterface, fragmentID uint8) {
 	packet.SetPayload(payload)
 	packet.SetSequenceID(uint16(client.SequenceIDOutManager().Next(packet)))
 
-	logger.Infof("Sending packet sID %d", packet.SequenceID())
-
 	encodedPacket := packet.Bytes()
 
 	server.SendRaw(client.Address(), encodedPacket)
 
 	if (packet.HasFlag(FlagReliable) || packet.Type() == SynPacket) && packet.HasFlag(FlagNeedsAck) {
+		logger.Infof("Sending packet sID %d", packet.SequenceID())
 		packet.Sender().outgoingResendManager.Add(packet)
 	}
 }
