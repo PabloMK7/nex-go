@@ -21,6 +21,23 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+func packetTypeToString(t uint16) string {
+	switch t {
+	case SynPacket:
+		return "SynPacket"
+	case ConnectPacket:
+		return "ConnectPacket"
+	case DataPacket:
+		return "DataPacket"
+	case DisconnectPacket:
+		return "DisconnectPacket"
+	case PingPacket:
+		return "PingPacket"
+	}
+	return ""
+}
+
+
 // Server represents a PRUDP server
 type Server struct {
 	socket                      *net.UDPConn
@@ -163,9 +180,17 @@ func (server *Server) handleSocketMessage() error {
 		}
 	}
 
+	logger.Infof("Incoming %s sID %d", packetTypeToString(packet.Type()), packet.SequenceID())
+
 	switch packet.Type() {
-	case DataPacket:
-		logger.Infof("Incoming data packet sID %d", packet.SequenceID())
+	case PingPacket:
+		err := server.processPacket(packet)
+		if err != nil {
+			// TODO - Should this return the error too?
+			logger.Error(err.Error())
+			return nil
+		}
+	default:
 		// TODO - Make a better API in client to access incomingPacketManager?
 		client.incomingPacketManager.Push(packet)
 
@@ -174,7 +199,6 @@ func (server *Server) handleSocketMessage() error {
 		// * this way if several packets came in out of order they all get
 		// * processed at once the moment the correct next packet comes in
 		for next := client.incomingPacketManager.Next(); next != nil; {
-			logger.Infof("Processing data packet sID %d", next.SequenceID())
 			err := server.processPacket(next)
 			if err != nil {
 				// TODO - Should this return the error too?
@@ -183,17 +207,6 @@ func (server *Server) handleSocketMessage() error {
 			}
 
 			next = client.incomingPacketManager.Next()
-		}
-	default:
-		if packet.Type() != PingPacket {
-			client.incomingPacketManager.Increment()
-		}
-		logger.Info(fmt.Sprintf("Processing misc packet sID %d", packet.SequenceID()))
-		err := server.processPacket(packet)
-		if err != nil {
-			// TODO - Should this return the error too?
-			logger.Error(err.Error())
-			return nil
 		}
 	}
 

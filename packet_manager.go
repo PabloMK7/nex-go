@@ -22,10 +22,6 @@ func (p *PacketManager) Next() PacketInterface {
 	return packet
 }
 
-func (p *PacketManager) Increment() {
-	p.currentSequenceID.Increment()
-}
-
 // Push adds a packet to the pool to choose from in Next
 func (p *PacketManager) Push(packet PacketInterface) {
 	p.packets = append(p.packets, packet)
