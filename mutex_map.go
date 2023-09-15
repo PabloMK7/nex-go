@@ -42,8 +42,8 @@ func (m *MutexMap[K, V]) Size() int {
 	return len(m.real)
 }
 
-// Each runs a function for every item in the map
-// the function takes in the items key and value
+// Each runs a callback function for every item in the map
+// The map should not be modified inside the callback function
 func (m *MutexMap[K, V]) Each(callback func(key K, value V)) {
 	m.RLock()
 	defer m.RUnlock()
@@ -53,14 +53,16 @@ func (m *MutexMap[K, V]) Each(callback func(key K, value V)) {
 	}
 }
 
-// Clear clears the map and runs a function for every item removed
-// the function takes in the items key and value
-func (m *MutexMap[K, V]) Clear(callback func (key K, value V)) {
+// Clear removes all items from the `real` map
+// Accepts an optional callback function ran for every item before it is deleted
+func (m *MutexMap[K, V]) Clear(callback func(key K, value V)) {
 	m.Lock()
 	defer m.Unlock()
 
 	for key, value := range m.real {
-		callback(key, value)
+		if callback != nil {
+			callback(key, value)
+		}
 		delete(m.real, key)
 	}
 }
