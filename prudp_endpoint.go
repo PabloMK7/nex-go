@@ -656,6 +656,7 @@ func (pep *PRUDPEndPoint) Disconnect(connection *PRUDPConnection) {
 	}
 
 	disconnect.SetType(constants.DisconnectPacket)
+	disconnect.AddFlag(constants.PacketFlagReliable)
 	disconnect.SetSourceVirtualPortStreamType(connection.StreamType)
 	disconnect.SetSourceVirtualPortStreamID(pep.StreamID)
 	disconnect.SetDestinationVirtualPortStreamType(connection.StreamType)
